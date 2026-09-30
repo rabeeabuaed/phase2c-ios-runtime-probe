@@ -42,3 +42,4 @@ schemes:
       environmentVariables:
         TCGEN_BACKEND_ORIGIN: "$(TCGEN_BACKEND_ORIGIN)"
         TCGEN_DASHBOARD_SESSION: "$(TCGEN_DASHBOARD_SESSION)"
+        TCGEN_CI_RUN_ID: "$(TCGEN_CI_RUN_ID)"

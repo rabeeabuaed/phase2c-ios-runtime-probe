@@ -3,12 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       backend_origin:
-        description: Temporary owned backend HTTPS origin (optional for build probe)
-        required: false
+        description: Temporary owned backend HTTPS origin
+        required: true
         type: string
       dashboard_session:
-        description: Dashboard-created session ID (optional for build probe)
-        required: false
+        description: Dashboard-created session ID
+        required: true
         type: string
 permissions:
   contents: read
@@ -23,59 +23,21 @@ jobs:
       TCGEN_DASHBOARD_SESSION: ${{ inputs.dashboard_session }}
     steps:
       - uses: actions/checkout@v4
-      - name: Select and boot a real Apple iOS Simulator
-        run: |
-          mkdir -p evidence
-          sw_vers > evidence/macos.txt
-          xcodebuild -version > evidence/xcode.txt
-          xcrun --sdk iphonesimulator --show-sdk-version > evidence/sdk-version.txt
-          xcrun simctl list devices available --json > evidence/devices.json
-          python3 - <<'PY'
-          import json, os
-          devices = json.load(open('evidence/devices.json'))['devices']
-          candidates = [(runtime, d) for runtime, rows in devices.items() if '.iOS-' in runtime for d in rows if 'iPhone' in d['name'] and d.get('isAvailable')]
-          sdk = open('evidence/sdk-version.txt').read().strip().replace('.', '-')
-          compatible = [(r, d) for r, d in candidates if r.endswith('.iOS-' + sdk)]
-          if not compatible: raise RuntimeError('No simulator matching selected Xcode SDK ' + sdk)
-          runtime, device = sorted(compatible, key=lambda p: p[1]['name'])[-1]
-          proof = {'runtime': runtime, 'device': device, 'commit': os.environ['GITHUB_SHA'], 'runId': os.environ['GITHUB_RUN_ID'], 'dashboardSession': os.environ['TCGEN_DASHBOARD_SESSION']}
-          json.dump(proof, open('evidence/runtime.json', 'w'), indent=2)
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('TCGEN_SIMULATOR_UDID=' + device['udid'] + '\n')
-          PY
-      - name: Build or exercise the native application
-        run: |
-          set -euo pipefail
-          xcrun simctl boot "$TCGEN_SIMULATOR_UDID" || true
-          xcrun simctl bootstatus "$TCGEN_SIMULATOR_UDID" -b
-          command -v xcodegen || brew install xcodegen
-          cd IOSCoreProbe
-          xcodegen generate
-          if [[ -n "$TCGEN_DASHBOARD_SESSION" ]]; then
-            [[ "$TCGEN_DASHBOARD_SESSION" =~ ^[a-f0-9]{32}$ ]]
-            [[ "$TCGEN_BACKEND_ORIGIN" == https://*.trycloudflare.com ]]
-            action=test
-          else
-            action=build-for-testing
-          fi
-          xcodebuild -project IOSCoreProbe.xcodeproj -scheme IOSCoreProbe \
-            -destination "platform=iOS Simulator,id=$TCGEN_SIMULATOR_UDID" \
-            -derivedDataPath ../build -resultBundlePath ../evidence/IOSCoreProbe.xcresult \
-            TCGEN_BACKEND_ORIGIN="$TCGEN_BACKEND_ORIGIN" \
-            TCGEN_DASHBOARD_SESSION="$TCGEN_DASHBOARD_SESSION" \
-            CODE_SIGNING_ALLOWED=NO "$action" 2>&1 | tee ../evidence/xcodebuild.log
-          if [[ "$action" == test ]]; then
-            xcrun xcresulttool export attachments --path ../evidence/IOSCoreProbe.xcresult --output-path ../evidence/screenshots
-            xcrun xcresulttool get test-results summary --path ../evidence/IOSCoreProbe.xcresult > ../evidence/test-summary.json
-          fi
-          APP=../build/Build/Products/Debug-iphonesimulator/IOSCoreProbe.app
-          xcrun simctl install "$TCGEN_SIMULATOR_UDID" "$APP"
-          xcrun simctl launch "$TCGEN_SIMULATOR_UDID" org.tcgen.phase2c.IOSCoreProbe
-          xcrun simctl io "$TCGEN_SIMULATOR_UDID" screenshot ../evidence/simulator.png
-          ditto -c -k --keepParent "$APP" ../evidence/IOSCoreProbe.app.zip
-          shasum -a 256 ../evidence/IOSCoreProbe.app.zip > ../evidence/build-sha256.txt
+      - name: Boot, build, install, launch and exercise the native app
+        run: python3 ci_runtime.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-runtime-${{ github.run_id }}
           path: evidence
-          retention-days: 1
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-provenance-${{ github.run_id }}
+          path: |
+            evidence/*.json
+            evidence/*.txt
+            evidence/*.log
+            evidence/*.har
+            evidence/*.zip
+          retention-days: 7

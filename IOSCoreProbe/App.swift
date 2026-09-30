@@ -1,4 +1,33 @@
 import SwiftUI
+import CryptoKit
+
+@MainActor
+final class RuntimeReceipt {
+    static let shared = RuntimeReceipt()
+    private let launchedAt = Date().timeIntervalSince1970
+    private var actions: [[String: Any]] = []
+    static func hash(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+    func record(_ action: [String: Any]) throws {
+        actions.append(action)
+        let environment = ProcessInfo.processInfo.environment
+        let receipt: [String: Any] = [
+            "bundleId": Bundle.main.bundleIdentifier ?? "",
+            "processId": ProcessInfo.processInfo.processIdentifier,
+            "launchedAt": launchedAt,
+            "systemName": UIDevice.current.systemName,
+            "systemVersion": UIDevice.current.systemVersion,
+            "ciRunId": environment["TCGEN_CI_RUN_ID"] ?? "",
+            "dashboardSession": environment["TCGEN_DASHBOARD_SESSION"] ?? "",
+            "actions": actions
+        ]
+        let file = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("runtime-receipt.json")
+        try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys, .prettyPrinted])
+            .write(to: file, options: .atomic)
+    }
+}
 
 @main
 struct IOSCoreProbeApp: App {
@@ -53,8 +82,12 @@ struct ProbeView: View {
         defer { busy = false }
         do {
             var request = URLRequest(url: url)
+            let requestID = UUID().uuidString
+            let startedAt = Date().timeIntervalSince1970
             request.httpMethod = method
             request.setValue(session, forHTTPHeaderField: "X-Dashboard-Session")
+            request.setValue(requestID, forHTTPHeaderField: "X-IOS-Request-ID")
+            request.setValue(ProcessInfo.processInfo.environment["TCGEN_CI_RUN_ID"] ?? "", forHTTPHeaderField: "X-CI-Run-ID")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             if !token.isEmpty { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
             if let body = body {
@@ -63,6 +96,13 @@ struct ProbeView: View {
             }
             let (data, response) = try await URLSession.shared.data(for: request)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            try RuntimeReceipt.shared.record([
+                "action": action, "requestId": requestID, "method": method,
+                "url": url.absoluteString, "startedAt": startedAt,
+                "completedAt": Date().timeIntervalSince1970, "responseStatus": code,
+                "requestBodySha256": RuntimeReceipt.hash(request.httpBody ?? Data()),
+                "responseBodySha256": RuntimeReceipt.hash(data)
+            ])
             if path == "/login", let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let credential = value["token"] as? String { token = credential }
             if path == "/logout" { token = "" }

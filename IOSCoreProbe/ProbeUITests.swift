@@ -11,6 +11,7 @@ final class ProbeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["TCGEN_BACKEND_ORIGIN"] = origin
         app.launchEnvironment["TCGEN_DASHBOARD_SESSION"] = session
+        app.launchEnvironment["TCGEN_CI_RUN_ID"] = environment["TCGEN_CI_RUN_ID"]
         app.launch()
         for action in ["loginAlice", "profile", "items", "search", "create", "update", "role", "owned", "foreign", "error", "logout", "loginBob", "profile", "foreign"] {
             let button = app.buttons[action]

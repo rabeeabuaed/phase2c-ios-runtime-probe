@@ -1,5 +1,7 @@
 # iOS runtime integration fixture
 
-Small, standalone SwiftUI test app for an owned disposable API backend. The workflow builds and runs Apple iOS Simulator on a standard GitHub-hosted macOS runner. XCUITest taps native app controls; URLSession performs the requests.
+Standalone SwiftUI app for an owned disposable backend. XCUITest taps actual native controls; URLSession performs all application requests.
 
-This repository contains only the test fixture. It contains no private application source, credentials, security framework source, or captured HTTP data. Runtime artifacts expire after one day. The optional backend origin must be a temporary owned Cloudflare Quick Tunnel; no third-party target is supported.
+The macOS workflow retains booted simulator output, build/install/launch command output, XCTest results, app-generated request receipts, exact backend HAR and artifact hashes. A small provenance ZIP has a GitHub-published SHA-256 digest for independent Dashboard verification. Artifacts expire after seven days; they contain only controlled test data and dummy credentials.
+
+Only the newly authored fixture and workflow are published as source. No private application or security framework source is included. The backend origin must be an owned temporary Cloudflare Quick Tunnel.
