@@ -4,7 +4,7 @@ import CryptoKit
 @MainActor
 final class RuntimeReceipt {
     static let shared = RuntimeReceipt()
-    private let launchedAt = Date().timeIntervalSince1970
+    private let recordingStartedAt = Date().timeIntervalSince1970
     private var actions: [[String: Any]] = []
     static func hash(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -15,7 +15,7 @@ final class RuntimeReceipt {
         let receipt: [String: Any] = [
             "bundleId": Bundle.main.bundleIdentifier ?? "",
             "processId": ProcessInfo.processInfo.processIdentifier,
-            "launchedAt": launchedAt,
+            "recordingStartedAt": recordingStartedAt,
             "systemName": UIDevice.current.systemName,
             "systemVersion": UIDevice.current.systemVersion,
             "ciRunId": environment["TCGEN_CI_RUN_ID"] ?? "",

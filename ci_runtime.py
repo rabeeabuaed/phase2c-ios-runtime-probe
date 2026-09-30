@@ -24,6 +24,7 @@ threading.Thread(target=backend.serve_forever, daemon=True).start()
 
 
 def command(args, filename, env=None):
+    print("Collecting " + filename, flush=True)
     result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     (OUT / filename).write_bytes(result.stdout)
     result.check_returncode()
