@@ -2,3 +2,4 @@ build/
 evidence/
 *.xcodeproj/
 Generated-Info.plist
+backend-capture/

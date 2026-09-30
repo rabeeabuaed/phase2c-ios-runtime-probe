@@ -5,17 +5,22 @@ import os
 import re
 import shutil
 import subprocess
-import urllib.request
 from pathlib import Path
 
 OUT = Path("evidence")
 OUT.mkdir(exist_ok=True)
 SID = os.environ["TCGEN_DASHBOARD_SESSION"]
-ORIGIN = os.environ["TCGEN_BACKEND_ORIGIN"]
+ORIGIN = "http://127.0.0.1:8878"
 RUN = os.environ["GITHUB_RUN_ID"]
 BUNDLE = "org.tcgen.phase2c.IOSCoreProbe"
 assert re.fullmatch(r"[a-f0-9]{32}", SID)
-assert re.fullmatch(r"https://[a-z0-9-]+\.trycloudflare\.com", ORIGIN)
+from ci_backend import Lab, handler, document
+from http.server import ThreadingHTTPServer
+import threading
+lab = Lab("backend-capture")
+backend = ThreadingHTTPServer(("127.0.0.1", 8878), handler(lab))
+threading.Thread(target=backend.serve_forever, daemon=True).start()
+(OUT / "openapi.json").write_text(json.dumps(document(ORIGIN), indent=2))
 
 
 def command(args, filename, env=None):
@@ -59,8 +64,9 @@ command(["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", "e
 command(["xcrun", "xcresulttool", "export", "attachments", "--path", "evidence/IOSCoreProbe.xcresult", "--output-path", "evidence/screenshots"], "attachment-export.txt")
 container = command(["xcrun", "simctl", "get_app_container", udid, BUNDLE, "data"], "data-container.txt")
 shutil.copyfile(Path(container) / "Documents/runtime-receipt.json", OUT / "runtime-receipt.json")
-with urllib.request.urlopen(ORIGIN + "/capture/" + SID + ".har", timeout=30) as response:
-    (OUT / "original-capture.har").write_bytes(response.read())
+with lab.lock:
+    shutil.copyfile(Path("backend-capture") / (SID + ".har"), OUT / "original-capture.har")
+backend.shutdown()
 command(["ditto", "-c", "-k", "--keepParent", str(app), "evidence/IOSCoreProbe.app.zip"], "archive-app.txt")
 proof = {"schemaVersion": 1, "runId": RUN, "commit": os.environ["GITHUB_SHA"],
          "dashboardSession": SID, "bundleId": BUNDLE, "simulatorUDID": udid, "runtime": runtime,

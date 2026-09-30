@@ -2,10 +2,6 @@ name: Real iOS runtime probe
 on:
   workflow_dispatch:
     inputs:
-      backend_origin:
-        description: Temporary owned backend HTTPS origin
-        required: true
-        type: string
       dashboard_session:
         description: Dashboard-created session ID
         required: true
@@ -19,7 +15,6 @@ jobs:
     env:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
-      TCGEN_BACKEND_ORIGIN: ${{ inputs.backend_origin }}
       TCGEN_DASHBOARD_SESSION: ${{ inputs.dashboard_session }}
     steps:
       - uses: actions/checkout@v4
