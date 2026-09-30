@@ -63,6 +63,10 @@ jobs:
             TCGEN_BACKEND_ORIGIN="$TCGEN_BACKEND_ORIGIN" \
             TCGEN_DASHBOARD_SESSION="$TCGEN_DASHBOARD_SESSION" \
             CODE_SIGNING_ALLOWED=NO "$action" 2>&1 | tee ../evidence/xcodebuild.log
+          if [[ "$action" == test ]]; then
+            xcrun xcresulttool export attachments --path ../evidence/IOSCoreProbe.xcresult --output-path ../evidence/screenshots
+            xcrun xcresulttool get test-results summary --path ../evidence/IOSCoreProbe.xcresult > ../evidence/test-summary.json
+          fi
           APP=../build/Build/Products/Debug-iphonesimulator/IOSCoreProbe.app
           xcrun simctl install "$TCGEN_SIMULATOR_UDID" "$APP"
           xcrun simctl launch "$TCGEN_SIMULATOR_UDID" org.tcgen.phase2c.IOSCoreProbe
