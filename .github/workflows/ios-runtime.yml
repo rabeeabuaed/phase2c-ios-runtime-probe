@@ -26,12 +26,16 @@ jobs:
           mkdir -p evidence
           sw_vers > evidence/macos.txt
           xcodebuild -version > evidence/xcode.txt
+          xcrun --sdk iphonesimulator --show-sdk-version > evidence/sdk-version.txt
           xcrun simctl list devices available --json > evidence/devices.json
           python3 - <<'PY'
           import json, os
           devices = json.load(open('evidence/devices.json'))['devices']
           candidates = [(runtime, d) for runtime, rows in devices.items() if '.iOS-' in runtime for d in rows if 'iPhone' in d['name'] and d.get('isAvailable')]
-          runtime, device = sorted(candidates, key=lambda p: (p[0], p[1]['name']))[-1]
+          sdk = open('evidence/sdk-version.txt').read().strip().replace('.', '-')
+          compatible = [(r, d) for r, d in candidates if r.endswith('.iOS-' + sdk)]
+          if not compatible: raise RuntimeError('No simulator matching selected Xcode SDK ' + sdk)
+          runtime, device = sorted(compatible, key=lambda p: p[1]['name'])[-1]
           proof = {'runtime': runtime, 'device': device, 'commit': os.environ['GITHUB_SHA'], 'runId': os.environ['GITHUB_RUN_ID'], 'dashboardSession': os.environ['TCGEN_DASHBOARD_SESSION']}
           json.dump(proof, open('evidence/runtime.json', 'w'), indent=2)
           with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('TCGEN_SIMULATOR_UDID=' + device['udid'] + '\n')
