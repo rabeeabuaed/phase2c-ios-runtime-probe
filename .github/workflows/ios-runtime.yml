@@ -17,6 +17,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25
     env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
       TCGEN_BACKEND_ORIGIN: ${{ inputs.backend_origin }}
       TCGEN_DASHBOARD_SESSION: ${{ inputs.dashboard_session }}
     steps:
