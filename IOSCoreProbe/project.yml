@@ -1,0 +1,44 @@
+name: IOSCoreProbe
+options:
+  bundleIdPrefix: org.tcgen.phase2c
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  SWIFT_VERSION: "5.0"
+  CODE_SIGNING_ALLOWED: "NO"
+targets:
+  IOSCoreProbe:
+    type: application
+    platform: iOS
+    sources:
+      - path: App.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.tcgen.phase2c.IOSCoreProbe
+      GENERATE_INFOPLIST_FILE: "YES"
+      INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: "YES"
+      INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+    info:
+      path: Generated-Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+  IOSCoreProbeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ProbeUITests.swift
+    dependencies:
+      - target: IOSCoreProbe
+    settings:
+      GENERATE_INFOPLIST_FILE: "YES"
+schemes:
+  IOSCoreProbe:
+    build:
+      targets:
+        IOSCoreProbe: all
+        IOSCoreProbeUITests: [test]
+    test:
+      targets: [IOSCoreProbeUITests]
+      environmentVariables:
+        TCGEN_BACKEND_ORIGIN: "$(TCGEN_BACKEND_ORIGIN)"
+        TCGEN_DASHBOARD_SESSION: "$(TCGEN_DASHBOARD_SESSION)"
